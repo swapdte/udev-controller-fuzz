@@ -1,0 +1,11 @@
+# 8BitDo Ultimate 2 Wireless Controller - Fuzz & Deadzone Optimierung
+# Wird automatisch ausgefuehrt sobald der Controller verbunden wird.
+ACTION=="add", \
+  SUBSYSTEM=="input", \
+  KERNEL=="event*", \
+  ENV{ID_INPUT_JOYSTICK}=="1", \
+  ENV{ID_SERIAL}=="8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B862260", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B862260-event-joystick --f 8 --d 0 --a 0", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B862260-event-joystick --f 8 --d 0 --a 1", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B862260-event-joystick --f 8 --d 0 --a 3", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B862260-event-joystick --f 8 --d 0 --a 4"
