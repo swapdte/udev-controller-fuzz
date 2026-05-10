@@ -69,7 +69,7 @@ Alternativ: Controller abziehen und wieder anstecken.
 ### Pruefen ob die Einstellungen aktiv sind
 
 ```bash
-evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B862260-event-joystick --q
+evdev-joystick --s /dev/input/by-id/usb-8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B862260-event-joystick
 ```
 
 Das sollte die aktuellen Fuzz- und Deadzone-Werte fuer alle Achsen anzeigen. Erwartet: `fuzz=8, flat=0` fuer die Achsen 0, 1, 3, 4.
