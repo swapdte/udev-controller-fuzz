@@ -22,7 +22,8 @@ Sollte `/usr/bin/evdev-joystick` ausgeben.
 
 | Datei | Beschreibung |
 |---|---|
-| `99-8bitdo-ultimate2-fuzz.rules` | udev-Regel – enthaelt alle vier `evdev-joystick`-Befehle inline |
+| `99-8bitdo-ultimate2-fuzz.rules` | udev-Regel fuer den 8BitDo Controller – enthaelt alle vier `evdev-joystick`-Befehle inline |
+| `60-steam-input.rules` | Gefixte Steam-udev-Regel – behebt den `power/wakeup`-Fehler beim Booten |
 | `contoller-fuzz.sh` | Bash-Skript zum manuellen Testen (mit sudo) – nicht fuer den Betrieb noetig |
 | `apply-8bitdo-fuzz.sh` | Helfer-Skript fuer aelteren udev-Ansatz – nicht fuer den Betrieb noetig |
 
@@ -43,6 +44,25 @@ sudo udevadm control --reload-rules
 ```
 
 Das war's. Ab jetzt werden die Einstellungen automatisch angewendet sobald der Controller verbunden wird.
+
+### 3. Steam Controller `power/wakeup`-Fix installieren (falls OG Steam Controller vorhanden)
+
+Wenn du einen OG Steam Controller mit Empfaenger hast, verursacht die originale Steam-udev-Regel seit neueren Kerneln einen Fehler beim Booten:
+
+```
+60-steam-input.rules:14 ATTR{power/wakeup}="enabled": Could not chase sysfs attribute
+```
+
+**Ursache:** Die Regel matched auf `SUBSYSTEM=="usb"`, was sowohl USB-Devices als auch USB-Interfaces trifft. Auf Interface-Ebene existiert `power/wakeup` jedoch nicht mehr.
+
+**Fix:** Die gepatchte Regel enthaelt `ENV{DEVTYPE}=="usb_device"` und trifft somit nur noch auf das richtige Sysfs-Level.
+
+```bash
+sudo cp 60-steam-input.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+```
+
+Diese Datei ueberschreibt die Steam-Regel aus `/usr/lib/udev/rules.d/` komplett. Sie ist identisch zur Originalregel – nur Zeile 14 enthaelt den Fix.
 
 ## Manueller Test
 
@@ -114,6 +134,7 @@ sudo pacman -S joyutils
 
 ```bash
 sudo rm /etc/udev/rules.d/99-8bitdo-ultimate2-fuzz.rules
+sudo rm -f /etc/udev/rules.d/60-steam-input.rules
 sudo udevadm control --reload-rules
 ```
 
@@ -123,3 +144,12 @@ sudo udevadm control --reload-rules
 - **Deadzone (flat) = 0**: Setzt die hardwareseitige Deadzone auf 0 – der fuzz-Wert uebernimmt stattdessen die Filterung. Dadurch bleibt der Stick ueber den gesamten Bereich ansprechbar, ohne dass ungewollte Bewegungen registriert werden.
 - **Achsen 0, 1**: Linker Stick (X, Y)
 - **Achsen 3, 4**: Rechter Stick (X, Y)
+
+## Lizenz
+
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
+
+## Mitwirkende
+
+- **Marc K.** – Autor und Maintainer
+- **OpenCode** – Co-Autor (udev-Regel-Optimierung, Steam-Input-Fix, Dokumentation)
