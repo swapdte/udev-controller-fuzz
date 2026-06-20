@@ -1,0 +1,18 @@
+# 8BitDo Ultimate 3 Wireless Controller - Fuzz & Deadzone Optimierung
+#
+# Der Ultimate 3 meldet sich im Switch-Modus als "Nintendo Pro Controller"
+# (vendor 057e, product 2009, serial 000000000001).
+# Zur eindeutigen Identifikation wird die MAC-Adresse des Controllers
+# (ATTRS{uniq}) verwendet, da die USB-Serial identisch mit echten
+# Nintendo Pro Controllern ist und nicht zur Unterscheidung taugt.
+#
+# Achsen 0,1 = linker Stick (X/Y), Achsen 3,4 = rechter Stick (X/Y)
+ACTION=="add", \
+  SUBSYSTEM=="input", \
+  KERNEL=="event*", \
+  ENV{ID_INPUT_JOYSTICK}=="1", \
+  ATTRS{uniq}=="C5:4E:B8:D8:17:E4", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick --f 8 --d 0 --a 0", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick --f 8 --d 0 --a 1", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick --f 8 --d 0 --a 3", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick --f 8 --d 0 --a 4"
