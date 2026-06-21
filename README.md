@@ -79,7 +79,7 @@ Sollte `/usr/bin/evdev-joystick` ausgeben.
 | Datei | Beschreibung |
 |---|---|
 | `99-8bitdo-ultimate2-fuzz.rules` | udev-Regel für den 8BitDo Ultimate 2 – enthält alle vier `evdev-joystick`-Befehle inline |
-| `99-8bitdo-ultimate3-fuzz.rules` | udev-Regel für den 8BitDo Pro 3 – unterstützt beide Modi (Switch + XInput) |
+| `99-8bitdo-pro3-fuzz.rules` | udev-Regel für den 8BitDo Pro 3 – unterstützt beide Modi (Switch + XInput) |
 | `60-steam-input.rules` | Gefixte Steam-udev-Regel – behebt den `power/wakeup`-Fehler beim Booten |
 | `contoller-fuzz.sh` | Bash-Skript zum manuellen Testen (mit sudo) – nicht für den Betrieb nötig |
 | `apply-8bitdo-fuzz.sh` | Helfer-Skript für älteren udev-Ansatz – nicht für den Betrieb nötig |
@@ -91,7 +91,7 @@ Die beiden Bash-Skripte wurden zu Testzwecken geschrieben und sind für die Funk
 Für alle drei Regeln auf einmal:
 
 ```bash
-sudo cp 99-8bitdo-ultimate2-fuzz.rules 99-8bitdo-ultimate3-fuzz.rules 60-steam-input.rules /etc/udev/rules.d/
+sudo cp 99-8bitdo-ultimate2-fuzz.rules 99-8bitdo-pro3-fuzz.rules 60-steam-input.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 ```
 
@@ -109,7 +109,7 @@ sudo udevadm control --reload-rules
 ### 8BitDo Pro 3
 
 ```bash
-sudo cp 99-8bitdo-ultimate3-fuzz.rules /etc/udev/rules.d/
+sudo cp 99-8bitdo-pro3-fuzz.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 ```
 
@@ -188,7 +188,7 @@ Das sollte die aktuellen Fuzz- und Deadzone-Werte für alle Achsen anzeigen. Erw
 
 ```bash
 udevadm verify /etc/udev/rules.d/99-8bitdo-ultimate2-fuzz.rules
-udevadm verify /etc/udev/rules.d/99-8bitdo-ultimate3-fuzz.rules
+udevadm verify /etc/udev/rules.d/99-8bitdo-pro3-fuzz.rules
 ```
 
 2. **Match prüfen** – Schauen welche Eigenschaften das Gerät hat:
@@ -238,7 +238,7 @@ Ausgabe (Beispiel):
 ATTRS{uniq}=="C5:4E:B8:D8:17:E4"
 ```
 
-Diesen Wert in `99-8bitdo-ultimate3-fuzz.rules` im Modus-1-Block bei `ATTRS{uniq}=="..."` eintragen.
+Diesen Wert in `99-8bitdo-pro3-fuzz.rules` im Modus-1-Block bei `ATTRS{uniq}=="..."` eintragen.
 
 > **Hinweis:** Im XInput-Modus (nach Neuverbinden) ist `ATTRS{uniq}` leer. Die MAC kann nur im Switch-Modus ausgelesen werden. Der XInput-Modus-Block der Regel verwendet stattdessen `ID_VENDOR_ID` und `ID_MODEL_ID` und muss in der Regel nicht angepasst werden.
 
@@ -258,7 +258,7 @@ sudo pacman -S joyutils
 
 ```bash
 sudo rm /etc/udev/rules.d/99-8bitdo-ultimate2-fuzz.rules
-sudo rm /etc/udev/rules.d/99-8bitdo-ultimate3-fuzz.rules
+sudo rm /etc/udev/rules.d/99-8bitdo-pro3-fuzz.rules
 sudo rm -f /etc/udev/rules.d/60-steam-input.rules
 sudo udevadm control --reload-rules
 ```
