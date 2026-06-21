@@ -1,12 +1,15 @@
 # 8BitDo Ultimate 3 Wireless Controller - Fuzz & Deadzone Optimierung
+# Wird automatisch ausgefuehrt sobald der Controller verbunden wird.
 #
-# Der Ultimate 3 meldet sich im Switch-Modus als "Nintendo Pro Controller"
-# (vendor 057e, product 2009, serial 000000000001).
-# Zur eindeutigen Identifikation wird die MAC-Adresse des Controllers
-# (ATTRS{uniq}) verwendet, da die USB-Serial identisch mit echten
-# Nintendo Pro Controllern ist und nicht zur Unterscheidung taugt.
-#
-# Achsen 0,1 = linker Stick (X/Y), Achsen 3,4 = rechter Stick (X/Y)
+# Der Ultimate 3 meldet sich in zwei verschiedenen Modi:
+# 1. Switch-Modus (erstes Verbinden nach Reboot): als Nintendo Pro Controller (057e:2009)
+#    - Treiber: hid_nintendo
+#    - Identifizierung via MAC-Adresse (ATTRS{uniq}), da USB-Serial nicht eindeutig
+# 2. XInput-Modus (nach Trennen und Neuverbinden): als 8BitDo Pro 3 Receiver (2dc8:310b)
+#    - Treiber: xpad
+#    - Identifizierung via Vendor/Product ID, da ATTRS{uniq} leer ist
+
+# Modus 1: Switch-Modus (Nintendo Pro Controller) - identifiziert via MAC-Adresse
 ACTION=="add", \
   SUBSYSTEM=="input", \
   KERNEL=="event*", \
@@ -16,3 +19,15 @@ ACTION=="add", \
   RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick --f 8 --d 0 --a 1", \
   RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick --f 8 --d 0 --a 3", \
   RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick --f 8 --d 0 --a 4"
+
+# Modus 2: XInput-Modus (8BitDo Pro 3 Receiver) - identifiziert via Vendor/Product ID
+ACTION=="add", \
+  SUBSYSTEM=="input", \
+  KERNEL=="event*", \
+  ENV{ID_INPUT_JOYSTICK}=="1", \
+  ENV{ID_VENDOR_ID}=="2dc8", \
+  ENV{ID_MODEL_ID}=="310b", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick --f 8 --d 0 --a 0", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick --f 8 --d 0 --a 1", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick --f 8 --d 0 --a 3", \
+  RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick --f 8 --d 0 --a 4"

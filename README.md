@@ -23,7 +23,8 @@ Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ulti
 | Controller | Vendor:Product | Modus | Identifikation via |
 |---|---|---|---|
 | 8BitDo Ultimate 2 Wireless | `2dc8:6013` | USB | `ID_SERIAL` (Serial `EF8B862260`) |
-| 8BitDo Ultimate 3 Wireless | `057e:2009` | Switch-Modus (S-Taste) | `ATTRS{uniq}` (MAC-Adresse) |
+| 8BitDo Ultimate 3 Wireless | `057e:2009` | Switch-Modus (1. Verbindung nach Reboot) | `ATTRS{uniq}` (MAC-Adresse) |
+| 8BitDo Ultimate 3 Wireless | `2dc8:310b` | XInput-Modus (nach Neuverbinden) | `ID_VENDOR_ID` + `ID_MODEL_ID` |
 
 ## Was die Einstellungen bewirken
 
@@ -31,11 +32,31 @@ Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ulti
 - **Deadzone (flat) = 0**: Setzt die hardwareseitige Deadzone auf 0 – der Fuzz-Wert übernimmt stattdessen die Filterung. Dadurch bleibt der Stick über den gesamten Bereich ansprechbar, ohne dass ungewollte Bewegungen registriert werden.
 - **Achsen 0, 1**: Linker Stick (X, Y)
 - **Achsen 3, 4**: Rechter Stick (X, Y)
-- **Achsen 2, 5** (Trigger): Werden nicht gesetzt – im Switch-Modus nicht als Analogachsen vorhanden.
+- **Achsen 2, 5** (Trigger): Werden nicht gesetzt. Im Switch-Modus nicht vorhanden, im XInput-Modus als Analogachsen (0–255) vorhanden, benötigen aber keine Fuzz/Deadzone-Optimierung.
 
-## Wichtig: Ultimate 3 im Switch-Modus
+## Wichtig: Ultimate 3 meldet sich in zwei Modi
 
-Der 8BitDo Ultimate 3 meldet sich im Switch-Modus als **"Nintendo Pro Controller"** (vendor `057e`, product `2009`). Das ist normales Verhalten für 8BitDo-Controller im Switch-Modus. Die udev-Regel identifiziert den Controller anhand seiner MAC-Adresse (`ATTRS{uniq}`), da die USB-Serial (`000000000001`) identisch mit echten Nintendo Pro Controllern ist und nicht zur Unterscheidung taugt.
+Der 8BitDo Ultimate 3 kann sich auf zwei verschiedene Arten am System melden:
+
+### Modus 1: Switch-Modus (erste Verbindung nach Reboot)
+
+Beim ersten Verbinden nach einem Neustart meldet sich der Controller als **"Nintendo Pro Controller"** (vendor `057e`, product `2009`). Das ist normales Verhalten für 8BitDo-Controller im Switch-Modus.
+
+- **Treiber:** `hid_nintendo`
+- **Identifikation:** MAC-Adresse (`ATTRS{uniq}`), da die USB-Serial (`000000000001`) identisch mit echten Nintendo Pro Controllern ist
+- **by-id-Pfad:** `usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick`
+- **Achsen:** 0, 1, 3, 4, 16, 17 (keine Trigger-Achsen 2, 5)
+
+### Modus 2: XInput-Modus (nach Trennen und Neuverbinden)
+
+Nach dem Trennen und Neuverbinden des Controllers wechselt dieser in den XInput-Modus und meldet sich als **"8BitDo Pro 3 Receiver"** (vendor `2dc8`, product `310b`).
+
+- **Treiber:** `xpad`
+- **Identifikation:** Vendor/Product ID (`2dc8:310b`), da `ATTRS{uniq}` in diesem Modus leer ist
+- **by-id-Pfad:** `usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick`
+- **Achsen:** 0, 1, 2, 3, 4, 5, 16, 17 (inkl. Trigger-Achsen 2, 5)
+
+Die udev-Regel enthält **zwei separate Match-Blöcke**, um beide Modi abzudecken.
 
 ## Voraussetzungen
 
@@ -58,7 +79,7 @@ Sollte `/usr/bin/evdev-joystick` ausgeben.
 | Datei | Beschreibung |
 |---|---|
 | `99-8bitdo-ultimate2-fuzz.rules` | udev-Regel für den 8BitDo Ultimate 2 – enthält alle vier `evdev-joystick`-Befehle inline |
-| `99-8bitdo-ultimate3-fuzz.rules` | udev-Regel für den 8BitDo Ultimate 3 (Switch-Modus) – identifiziert den Controller per MAC-Adresse |
+| `99-8bitdo-ultimate3-fuzz.rules` | udev-Regel für den 8BitDo Ultimate 3 – unterstützt beide Modi (Switch + XInput) |
 | `60-steam-input.rules` | Gefixte Steam-udev-Regel – behebt den `power/wakeup`-Fehler beim Booten |
 | `contoller-fuzz.sh` | Bash-Skript zum manuellen Testen (mit sudo) – nicht für den Betrieb nötig |
 | `apply-8bitdo-fuzz.sh` | Helfer-Skript für älteren udev-Ansatz – nicht für den Betrieb nötig |
@@ -130,8 +151,11 @@ sudo udevadm trigger --action=add /sys/class/input/event12
 
 **Ultimate 3:**
 ```bash
-# Gerätepfad herausfinden (meldet sich als Nintendo Pro Controller)
+# Gerätepfad herausfinden – hängt vom Modus ab:
+# Switch-Modus (1. Verbindung nach Reboot):
 ls /dev/input/by-id/*Pro_Controller*event-joystick
+# XInput-Modus (nach Neuverbinden):
+ls /dev/input/by-id/*Pro_3_Receiver*event-joystick
 
 # udev-Event manuell auslösen (Geräteknoten anpassen, z.B. event27 – die Nummer variiert)
 sudo udevadm trigger --action=add /sys/class/input/event27
@@ -148,7 +172,10 @@ evdev-joystick --s /dev/input/by-id/usb-8BitDo_8BitDo_Ultimate_2_Wireless_Contro
 
 **Ultimate 3:**
 ```bash
+# Switch-Modus:
 evdev-joystick --s /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick
+# XInput-Modus:
+evdev-joystick --s /dev/input/by-id/usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick
 ```
 
 Das sollte die aktuellen Fuzz- und Deadzone-Werte für alle Achsen anzeigen. Erwartet: `fuzz=8, flat=0` für die Achsen 0, 1, 3, 4.
@@ -176,11 +203,18 @@ Dort sollte `ID_SERIAL=8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B8
 
 **Ultimate 3:**
 ```bash
+# Switch-Modus:
 cat /proc/bus/input/devices | grep -A5 "Pro Controller"
 udevadm info -a /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick
+
+# XInput-Modus:
+cat /proc/bus/input/devices | grep -A5 "8BitDo"
+udevadm info -a /dev/input/by-id/usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick
 ```
 
-Dort sollte `ATTRS{uniq}=="C5:4E:B8:D8:17:E4"` (die MAC-Adresse deines Controllers) und `ID_INPUT_JOYSTICK=1` auftauchen. Falls die MAC abweicht, muss die udev-Regel angepasst werden.
+Im **Switch-Modus** sollte `ATTRS{uniq}=="C5:4E:B8:D8:17:E4"` (MAC-Adresse) und `ID_INPUT_JOYSTICK=1` auftauchen. Falls die MAC abweicht, muss die udev-Regel angepasst werden.
+
+Im **XInput-Modus** sollte `ID_VENDOR_ID=2dc8`, `ID_MODEL_ID=310b` und `ID_INPUT_JOYSTICK=1` auftauchen. `ATTRS{uniq}` ist in diesem Modus leer – das ist normal.
 
 3. **udev-Events live mitverfolgen:**
 
@@ -195,7 +229,7 @@ Dann Controller anstecken und prüfen ob die Eigenschaften mit der Regel überei
 Falls du einen anderen Ultimate 3 hast (andere MAC) oder die Regel anpassen musst:
 
 ```bash
-# Controller muss verbunden sein
+# Controller muss im Switch-Modus verbunden sein (1. Verbindung nach Reboot)
 udevadm info -a /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick | grep -i uniq
 ```
 
@@ -204,7 +238,9 @@ Ausgabe (Beispiel):
 ATTRS{uniq}=="C5:4E:B8:D8:17:E4"
 ```
 
-Diesen Wert in `99-8bitdo-ultimate3-fuzz.rules` bei `ATTRS{uniq}=="..."` eintragen.
+Diesen Wert in `99-8bitdo-ultimate3-fuzz.rules` im Modus-1-Block bei `ATTRS{uniq}=="..."` eintragen.
+
+> **Hinweis:** Im XInput-Modus (nach Neuverbinden) ist `ATTRS{uniq}` leer. Die MAC kann nur im Switch-Modus ausgelesen werden. Der XInput-Modus-Block der Regel verwendet stattdessen `ID_VENDOR_ID` und `ID_MODEL_ID` und muss in der Regel nicht angepasst werden.
 
 ### evdev-joystick nicht gefunden
 
@@ -215,8 +251,8 @@ sudo pacman -S joyutils
 ## Einschränkungen
 
 - **SDL2 / Steam**: SDL2 (verwendet von Steam und vielen Spielen) kann den Controller via `/dev/hidraw*` anstelle von `/dev/input/event*` ansprechen. In diesem Fall werden die evdev-joystick-Einstellungen umgangen. Die Einstellungen wirken sich nur auf Software aus, die den evdev-Layer verwendet (z.B. `jstest`, `evtest`, native Linux-Spiele).
-- **Switch-Modus**: Der Ultimate 3 muss im Switch-Modus verbunden sein, damit die Regel greift. Im XInput- oder DInput-Modus meldet er sich mit anderer vendor/product ID und die Regel trifft nicht zu.
-- **by-id-Pfad nicht einzigartig**: Der Pfad `usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick` ist identisch mit dem eines echten Nintendo Pro Controllers. Die Regel matched zwar über die MAC-Adresse (`ATTRS{uniq}`), aber der `RUN`-Befehl verwendet den by-id-Pfad. Falls du beide Controller gleichzeitig anschließt, könnte der Pfad auf das falsche Gerät zeigen.
+- **Zwei Modi des Ultimate 3**: Der Controller wechselt beim Neuverbinden vom Switch-Modus (Nintendo IDs) in den XInput-Modus (8BitDo IDs). Die udev-Regel deckt beide Modi ab, aber die Einstellungen müssen bei jedem Modus-Wechsel neu angewendet werden (passiert automatisch durch die udev-Regel).
+- **by-id-Pfad nicht einzigartig**: Im Switch-Modus ist der Pfad `usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick` identisch mit dem eines echten Nintendo Pro Controllers. Die Regel matched zwar über die MAC-Adresse (`ATTRS{uniq}`), aber der `RUN`-Befehl verwendet den by-id-Pfad. Falls du beide Controller gleichzeitig anschließt, könnte der Pfad auf das falsche Gerät zeigen. Im XInput-Modus ist der Pfad `usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick` nicht serial-spezifisch – bei zwei Pro 3 Receivern gäbe es einen Konflikt.
 
 ## Deinstallation
 
