@@ -1,12 +1,12 @@
 # 8BitDo Ultimate 2 & 3 – udev Fuzz & Deadzone Optimierung
 
-Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ultimate 2** und **8BitDo Ultimate 3 Wireless Controller**, sobald sie mit dem System verbunden werden.
+Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ultimate 2** und **8BitDo Pro 3 Wireless Controller**, sobald sie mit dem System verbunden werden.
 
 ## Inhalt
 
 - [Unterstützte Controller](#unterstützte-controller)
 - [Was die Einstellungen bewirken](#was-die-einstellungen-bewirken)
-- [Wichtig: Ultimate 3 im Switch-Modus](#wichtig-ultimate-3-im-switch-modus)
+- [Wichtig: Pro 3 meldet sich in zwei Modi](#wichtig-pro-3-meldet-sich-in-zwei-modi)
 - [Voraussetzungen](#voraussetzungen)
 - [Dateien in diesem Ordner](#dateien-in-diesem-ordner)
 - [Quick Start](#quick-start)
@@ -23,8 +23,8 @@ Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ulti
 | Controller | Vendor:Product | Modus | Identifikation via |
 |---|---|---|---|
 | 8BitDo Ultimate 2 Wireless | `2dc8:6013` | USB | `ID_SERIAL` (Serial `EF8B862260`) |
-| 8BitDo Ultimate 3 Wireless | `057e:2009` | Switch-Modus (1. Verbindung nach Reboot) | `ATTRS{uniq}` (MAC-Adresse) |
-| 8BitDo Ultimate 3 Wireless | `2dc8:310b` | XInput-Modus (nach Neuverbinden) | `ID_VENDOR_ID` + `ID_MODEL_ID` |
+| 8BitDo Pro 3 Wireless | `057e:2009` | Switch-Modus (1. Verbindung nach Reboot) | `ATTRS{uniq}` (MAC-Adresse) |
+| 8BitDo Pro 3 Wireless | `2dc8:310b` | XInput-Modus (nach Neuverbinden) | `ID_VENDOR_ID` + `ID_MODEL_ID` |
 
 ## Was die Einstellungen bewirken
 
@@ -34,9 +34,9 @@ Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ulti
 - **Achsen 3, 4**: Rechter Stick (X, Y)
 - **Achsen 2, 5** (Trigger): Werden nicht gesetzt. Im Switch-Modus nicht vorhanden, im XInput-Modus als Analogachsen (0–255) vorhanden, benötigen aber keine Fuzz/Deadzone-Optimierung.
 
-## Wichtig: Ultimate 3 meldet sich in zwei Modi
+## Wichtig: Pro 3 meldet sich in zwei Modi
 
-Der 8BitDo Ultimate 3 kann sich auf zwei verschiedene Arten am System melden:
+Der 8BitDo Pro 3 kann sich auf zwei verschiedene Arten am System melden:
 
 ### Modus 1: Switch-Modus (erste Verbindung nach Reboot)
 
@@ -79,7 +79,7 @@ Sollte `/usr/bin/evdev-joystick` ausgeben.
 | Datei | Beschreibung |
 |---|---|
 | `99-8bitdo-ultimate2-fuzz.rules` | udev-Regel für den 8BitDo Ultimate 2 – enthält alle vier `evdev-joystick`-Befehle inline |
-| `99-8bitdo-ultimate3-fuzz.rules` | udev-Regel für den 8BitDo Ultimate 3 – unterstützt beide Modi (Switch + XInput) |
+| `99-8bitdo-ultimate3-fuzz.rules` | udev-Regel für den 8BitDo Pro 3 – unterstützt beide Modi (Switch + XInput) |
 | `60-steam-input.rules` | Gefixte Steam-udev-Regel – behebt den `power/wakeup`-Fehler beim Booten |
 | `contoller-fuzz.sh` | Bash-Skript zum manuellen Testen (mit sudo) – nicht für den Betrieb nötig |
 | `apply-8bitdo-fuzz.sh` | Helfer-Skript für älteren udev-Ansatz – nicht für den Betrieb nötig |
@@ -106,7 +106,7 @@ sudo cp 99-8bitdo-ultimate2-fuzz.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 ```
 
-### 8BitDo Ultimate 3
+### 8BitDo Pro 3
 
 ```bash
 sudo cp 99-8bitdo-ultimate3-fuzz.rules /etc/udev/rules.d/
@@ -149,7 +149,7 @@ ls /dev/input/by-id/*8BitDo*event-joystick
 sudo udevadm trigger --action=add /sys/class/input/event12
 ```
 
-**Ultimate 3:**
+**Pro 3:**
 ```bash
 # Gerätepfad herausfinden – hängt vom Modus ab:
 # Switch-Modus (1. Verbindung nach Reboot):
@@ -170,7 +170,7 @@ Alternativ: Controller abziehen und wieder anstecken.
 evdev-joystick --s /dev/input/by-id/usb-8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B862260-event-joystick
 ```
 
-**Ultimate 3:**
+**Pro 3:**
 ```bash
 # Switch-Modus:
 evdev-joystick --s /dev/input/by-id/usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick
@@ -201,7 +201,7 @@ udevadm info --query=all --path=/sys/class/input/event12
 
 Dort sollte `ID_SERIAL=8BitDo_8BitDo_Ultimate_2_Wireless_Controller_for_PC_EF8B862260` und `ID_INPUT_JOYSTICK=1` auftauchen.
 
-**Ultimate 3:**
+**Pro 3:**
 ```bash
 # Switch-Modus:
 cat /proc/bus/input/devices | grep -A5 "Pro Controller"
@@ -224,9 +224,9 @@ sudo udevadm monitor --property --subsystem-match=input
 
 Dann Controller anstecken und prüfen ob die Eigenschaften mit der Regel übereinstimmen.
 
-### MAC-Adresse des Ultimate 3 herausfinden
+### MAC-Adresse des Pro 3 herausfinden
 
-Falls du einen anderen Ultimate 3 hast (andere MAC) oder die Regel anpassen musst:
+Falls du einen anderen Pro 3 hast (andere MAC) oder die Regel anpassen musst:
 
 ```bash
 # Controller muss im Switch-Modus verbunden sein (1. Verbindung nach Reboot)
@@ -251,7 +251,7 @@ sudo pacman -S joyutils
 ## Einschränkungen
 
 - **SDL2 / Steam**: SDL2 (verwendet von Steam und vielen Spielen) kann den Controller via `/dev/hidraw*` anstelle von `/dev/input/event*` ansprechen. In diesem Fall werden die evdev-joystick-Einstellungen umgangen. Die Einstellungen wirken sich nur auf Software aus, die den evdev-Layer verwendet (z.B. `jstest`, `evtest`, native Linux-Spiele).
-- **Zwei Modi des Ultimate 3**: Der Controller wechselt beim Neuverbinden vom Switch-Modus (Nintendo IDs) in den XInput-Modus (8BitDo IDs). Die udev-Regel deckt beide Modi ab, aber die Einstellungen müssen bei jedem Modus-Wechsel neu angewendet werden (passiert automatisch durch die udev-Regel).
+- **Zwei Modi des Pro 3**: Der Controller wechselt beim Neuverbinden vom Switch-Modus (Nintendo IDs) in den XInput-Modus (8BitDo IDs). Die udev-Regel deckt beide Modi ab, aber die Einstellungen müssen bei jedem Modus-Wechsel neu angewendet werden (passiert automatisch durch die udev-Regel).
 - **by-id-Pfad nicht einzigartig**: Im Switch-Modus ist der Pfad `usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick` identisch mit dem eines echten Nintendo Pro Controllers. Die Regel matched zwar über die MAC-Adresse (`ATTRS{uniq}`), aber der `RUN`-Befehl verwendet den by-id-Pfad. Falls du beide Controller gleichzeitig anschließt, könnte der Pfad auf das falsche Gerät zeigen. Im XInput-Modus ist der Pfad `usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick` nicht serial-spezifisch – bei zwei Pro 3 Receivern gäbe es einen Konflikt.
 
 ## Deinstallation

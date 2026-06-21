@@ -1,7 +1,7 @@
-# 8BitDo Ultimate 3 Wireless Controller - Fuzz & Deadzone Optimierung
+# 8BitDo Pro 3 Wireless Controller - Fuzz & Deadzone Optimierung
 # Wird automatisch ausgefuehrt sobald der Controller verbunden wird.
 #
-# Der Ultimate 3 meldet sich in zwei verschiedenen Modi:
+# Der Pro 3 meldet sich in zwei verschiedenen Modi:
 # 1. Switch-Modus (erstes Verbinden nach Reboot): als Nintendo Pro Controller (057e:2009)
 #    - Treiber: hid_nintendo
 #    - Identifizierung via MAC-Adresse (ATTRS{uniq}), da USB-Serial nicht eindeutig
