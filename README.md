@@ -1,6 +1,6 @@
-# 8BitDo Ultimate 2 & 3 – udev Fuzz & Deadzone Optimierung
+# 8BitDo Ultimate 2 & Pro 3 – udev Fuzz, Deadzone & RetroArch
 
-Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ultimate 2** und **8BitDo Pro 3 Wireless Controller**, sobald sie mit dem System verbunden werden.
+Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ultimate 2** und **8BitDo Pro 3 Wireless Controller**, sobald sie mit dem System verbunden werden. Enthält außerdem RetroArch-Autoconfig-Profile.
 
 ## Inhalt
 
@@ -11,6 +11,8 @@ Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ulti
 - [Dateien in diesem Ordner](#dateien-in-diesem-ordner)
 - [Quick Start](#quick-start)
 - [Installation](#installation)
+- [RetroArch Autoconfig](#retroarch-autoconfig)
+- [KDE Plasma](#kde-plasma)
 - [Manueller Test](#manueller-test)
 - [Fehlersuche](#fehlersuche)
 - [Einschränkungen](#einschränkungen)
@@ -81,6 +83,9 @@ Sollte `/usr/bin/evdev-joystick` ausgeben.
 | `99-8bitdo-ultimate2-fuzz.rules` | udev-Regel für den 8BitDo Ultimate 2 – enthält alle vier `evdev-joystick`-Befehle inline |
 | `99-8bitdo-pro3-fuzz.rules` | udev-Regel für den 8BitDo Pro 3 – unterstützt beide Modi (Switch + XInput) |
 | `60-steam-input.rules` | Gefixte Steam-udev-Regel – behebt den `power/wakeup`-Fehler beim Booten |
+| `8BitDo Pro 2.cfg` | RetroArch-Profil: Pro 3 im Switch-Modus (`1406:8201`) |
+| `8BitDo_Pro_3_XInput.cfg` | RetroArch-Profil: Pro 3 im XInput-Modus (`11720:12555`) |
+| `8BitDo Ultimate 2 Wireless Controller.cfg` | RetroArch-Profil: Ultimate 2 (`11720:24595`) |
 | `contoller-fuzz.sh` | Bash-Skript zum manuellen Testen (mit sudo) – nicht für den Betrieb nötig |
 | `apply-8bitdo-fuzz.sh` | Helfer-Skript für älteren udev-Ansatz – nicht für den Betrieb nötig |
 
@@ -133,6 +138,48 @@ sudo udevadm control --reload-rules
 ```
 
 Diese Datei überschreibt die Steam-Regel aus `/usr/lib/udev/rules.d/` komplett. Sie ist identisch zur Originalregel – nur Zeile 14 enthält den Fix.
+
+## RetroArch Autoconfig
+
+RetroArch matched Controller über **Kernel-Gerätename + Vendor-ID + Product-ID** (dezimal). Der Anzeigename (`input_device_display_name`) ist nur Kosmetik.
+
+### Wichtige IDs
+
+| Controller | Kernel-Name (`input_device`) | VID:PID hex | dezimal |
+|---|---|---|---|
+| Pro 3 Switch | `Nintendo.Co.Ltd. Pro Controller` | `057e:2009` | `1406:8201` |
+| Pro 3 XInput | `8BitDo Ultimate 2 Wireless Controller` | `2dc8:310b` | `11720:12555` |
+| Ultimate 2 | `8BitDo Ultimate 2 Wireless Controller` | `2dc8:6013` | `11720:24595` |
+
+> **Achtung:** Im XInput-Modus meldet der Kernel den Pro 3 fälschlich als „Ultimate 2 Wireless Controller“. Unterscheidung nur über die Product-ID (`12555` vs `24595`). Gleiche PID in beiden Profilen → RetroArch kann sie nicht trennen.
+
+### Installation
+
+Joypad-Treiber muss **udev** sein (Standard unter Linux):
+
+```bash
+cp "8BitDo Pro 2.cfg" "8BitDo_Pro_3_XInput.cfg" "8BitDo Ultimate 2 Wireless Controller.cfg" \
+  ~/.config/retroarch/autoconfig/udev/
+```
+
+Danach RetroArch neu starten. Unter *Einstellungen → Eingabe → Port 1 Controls* sollten die Display-Namen erscheinen:
+- `8BitDo Pro 3 (Switch)`
+- `8BitDo Pro 3 (XInput)`
+- `8BitDo Ultimate 2`
+
+### Button-Layout speichern
+
+Layout in RetroArch anpassen → *Autoconfig-Profil speichern*. Danach die `.cfg` zurück in diesen Ordner kopieren, falls du sie versionieren willst.
+
+**Nicht überschreiben:** `input_vendor_id` / `input_product_id` müssen die Werte aus der Tabelle oben behalten. RetroArch speichert manchmal die IDs des gerade verbundenen Geräts – bei Pro-3-XInput landet sonst `12555` im Ultimate-2-Profil.
+
+## KDE Plasma
+
+Unter KDE Plasma funktionieren die Controller in RetroArch (und teils anderen Apps) nur zuverlässig, wenn die **Verwendung als Maus und Tastatur** für den jeweiligen Gamecontroller erlaubt ist:
+
+*Systemeinstellungen → Eingabegeräte → Gamecontroller* (oder *Eingabe → Controller*) → Controller auswählen → **Als Maus und Tastatur verwenden** aktivieren.
+
+Ohne diese Freigabe kann KDE den Zugriff so einschränken, dass Eingaben in Emulatoren fehlen oder unvollständig ankommen.
 
 ## Manueller Test
 
@@ -250,9 +297,11 @@ sudo pacman -S joyutils
 
 ## Einschränkungen
 
-- **SDL2 / Steam**: SDL2 (verwendet von Steam und vielen Spielen) kann den Controller via `/dev/hidraw*` anstelle von `/dev/input/event*` ansprechen. In diesem Fall werden die evdev-joystick-Einstellungen umgangen. Die Einstellungen wirken sich nur auf Software aus, die den evdev-Layer verwendet (z.B. `jstest`, `evtest`, native Linux-Spiele).
+- **SDL2 / Steam**: SDL2 (verwendet von Steam und vielen Spielen) kann den Controller via `/dev/hidraw*` anstelle von `/dev/input/event*` ansprechen. In diesem Fall werden die evdev-joystick-Einstellungen umgangen. Die Einstellungen wirken sich nur auf Software aus, die den evdev-Layer verwendet (z.B. `jstest`, `evtest`, native Linux-Spiele, RetroArch mit Joypad-Treiber `udev`).
 - **Zwei Modi des Pro 3**: Der Controller wechselt beim Neuverbinden vom Switch-Modus (Nintendo IDs) in den XInput-Modus (8BitDo IDs). Die udev-Regel deckt beide Modi ab, aber die Einstellungen müssen bei jedem Modus-Wechsel neu angewendet werden (passiert automatisch durch die udev-Regel).
+- **Kernel-Name nicht änderbar**: Weder udev noch xpad können den von `EVIOCGNAME` gelieferten Gerätenamen umbenennen. RetroArch und Spiele sehen weiterhin den Kernel-Namen; nur `input_device_display_name` in Autoconfig ändert die Anzeige in RetroArch.
 - **by-id-Pfad nicht einzigartig**: Im Switch-Modus ist der Pfad `usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick` identisch mit dem eines echten Nintendo Pro Controllers. Die Regel matched zwar über die MAC-Adresse (`ATTRS{uniq}`), aber der `RUN`-Befehl verwendet den by-id-Pfad. Falls du beide Controller gleichzeitig anschließt, könnte der Pfad auf das falsche Gerät zeigen. Im XInput-Modus ist der Pfad `usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick` nicht serial-spezifisch – bei zwei Pro 3 Receivern gäbe es einen Konflikt.
+- **KDE Plasma**: Gamecontroller brauchen die Freigabe „Als Maus und Tastatur verwenden“, sonst können Eingaben in Emulatoren fehlen (siehe [KDE Plasma](#kde-plasma)).
 
 ## Deinstallation
 
