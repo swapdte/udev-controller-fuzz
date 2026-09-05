@@ -1,0 +1,13 @@
+# USB-Autosuspend für 8BitDo Controller deaktivieren.
+#
+# Hintergrund: Ohne offenes Eingabegerät (z.B. wenn die KDE-Option
+# "Verwendung der Controller als Maus und Tastatur erlauben" deaktiviert ist)
+# suspendet der Kernel die Empfänger nach 2s Idle. Die 8BitDo-Empfänger
+# erwachen daraus fehlerhaft (usbhid error -71 / EPROTO, Verbindung bricht).
+#
+# Deckt alle Modi ab:
+#   - 8BitDo (Vendor 2dc8): Pro 3 XInput (310b), Ultimate 2 (6013), Idle-Modus (3109)
+#   - Pro 3 im Switch-Modus (057e:2009, meldet sich als Nintendo Pro Controller)
+
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2dc8", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="057e", ATTR{idProduct}=="2009", ATTR{power/control}="on"

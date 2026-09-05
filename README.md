@@ -13,6 +13,7 @@ Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ulti
 - [Installation](#installation)
 - [RetroArch Autoconfig](#retroarch-autoconfig)
 - [KDE Plasma](#kde-plasma)
+- [USB-Autosuspend](#usb-autosuspend)
 - [Manueller Test](#manueller-test)
 - [Fehlersuche](#fehlersuche)
 - [Einschränkungen](#einschränkungen)
@@ -83,6 +84,7 @@ Sollte `/usr/bin/evdev-joystick` ausgeben.
 | `99-8bitdo-ultimate2-fuzz.rules` | udev-Regel für den 8BitDo Ultimate 2 – enthält alle vier `evdev-joystick`-Befehle inline |
 | `99-8bitdo-pro3-fuzz.rules` | udev-Regel für den 8BitDo Pro 3 – unterstützt beide Modi (Switch + XInput) |
 | `60-steam-input.rules` | Gefixte Steam-udev-Regel – behebt den `power/wakeup`-Fehler beim Booten |
+| `99-8bitdo-usb-power.rules` | Deaktiviert USB-Autosuspend für beide 8BitDo-Empfänger (alle Controller-Modi) |
 | `8BitDo Pro 2.cfg` | RetroArch-Profil: Pro 3 im Switch-Modus (`1406:8201`) |
 | `8BitDo_Pro_3_XInput.cfg` | RetroArch-Profil: Pro 3 im XInput-Modus (`11720:12555`) |
 | `8BitDo Ultimate 2 Wireless Controller.cfg` | RetroArch-Profil: Ultimate 2 (`11720:24595`) |
@@ -93,10 +95,10 @@ Die beiden Bash-Skripte wurden zu Testzwecken geschrieben und sind für die Funk
 
 ## Quick Start
 
-Für alle drei Regeln auf einmal:
+Für alle vier Regeln auf einmal:
 
 ```bash
-sudo cp 99-8bitdo-ultimate2-fuzz.rules 99-8bitdo-pro3-fuzz.rules 60-steam-input.rules /etc/udev/rules.d/
+sudo cp 99-8bitdo-ultimate2-fuzz.rules 99-8bitdo-pro3-fuzz.rules 99-8bitdo-usb-power.rules 60-steam-input.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 ```
 
@@ -119,6 +121,13 @@ sudo udevadm control --reload-rules
 ```
 
 Ab jetzt werden die Einstellungen automatisch angewendet sobald der jeweilige Controller verbunden wird.
+
+### USB-Autosuspend deaktivieren
+
+```bash
+sudo cp 99-8bitdo-usb-power.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+```
 
 ### Steam Controller `power/wakeup`-Fix (falls OG Steam Controller vorhanden)
 
@@ -180,6 +189,32 @@ Unter KDE Plasma funktionieren die Controller in RetroArch (und teils anderen Ap
 *Systemeinstellungen → Eingabegeräte → Gamecontroller* (oder *Eingabe → Controller*) → Controller auswählen → **Als Maus und Tastatur verwenden** aktivieren.
 
 Ohne diese Freigabe kann KDE den Zugriff so einschränken, dass Eingaben in Emulatoren fehlen oder unvollständig ankommen.
+
+### Zusammenhang mit Verbindungsabbrüchen
+
+Die KDE-Option hat einen versteckten Nebeneffekt: Ist sie **aktiviert**, hält KWin das evdev-Gerät des Controllers offen – das verhindert USB-Autosuspend und die Verbindung bleibt stabil. Deaktiviert man die Option, suspendet der Kernel die Empfänger nach 2 Sekunden Idle, und die 8BitDo-Empfänger erwachen fehlerhaft (`usbhid ... error -71` / EPROTO, Verbindung bricht).
+
+Die saubere Lösung ist daher **nicht** die KDE-Option aktiviert zu lassen, sondern den USB-Autosuspend direkt abzuschalten – siehe nächster Abschnitt.
+
+## USB-Autosuspend
+
+Der Kernel suspendet USB-Geräte nach 2 Sekunden ohne offenes Eingabegerät (`usbcore.autosuspend`, Default 2 s). Die 8BitDo-Empfänger vertragen das Aufwachen nicht: Der Resume-Handshake scheitert, im Journal erscheint `usbhid ... error -71 (EPROTO)` und „not running at top speed; connect to a high speed hub" – die Verbindung reißt ab oder flackert.
+
+`99-8bitdo-usb-power.rules` setzt für alle 8BitDo-Geräte (Vendor `2dc8` – Pro 3 im XInput-Modus `310b`, Ultimate 2 `6013`, Idle-Modus `3109`) und den Pro 3 im Switch-Modus (`057e:2009`) das Power-Management auf `on`:
+
+```
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2dc8", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="057e", ATTR{idProduct}=="2009", ATTR{power/control}="on"
+```
+
+Nach der Installation (siehe [Installation](#installation)) kannst du die KDE-Option „Verwendung als Maus und Tastatur" bedenkenlos **deaktivieren** – die Verbindung bleibt jetzt auch ohne KDE-Keep-Alive stabil.
+
+Prüfen ob die Regel gegriffen hat (Empfänger muss verbunden sein, Bus/Device anpassen):
+
+```bash
+lsusb | grep -i 8bitdo        # Bus und Device herausfinden
+cat /sys/bus/usb/devices/1-6/power/control   # erwartet: "on"
+```
 
 ## Manueller Test
 
@@ -301,13 +336,14 @@ sudo pacman -S joyutils
 - **Zwei Modi des Pro 3**: Der Controller wechselt beim Neuverbinden vom Switch-Modus (Nintendo IDs) in den XInput-Modus (8BitDo IDs). Die udev-Regel deckt beide Modi ab, aber die Einstellungen müssen bei jedem Modus-Wechsel neu angewendet werden (passiert automatisch durch die udev-Regel).
 - **Kernel-Name nicht änderbar**: Weder udev noch xpad können den von `EVIOCGNAME` gelieferten Gerätenamen umbenennen. RetroArch und Spiele sehen weiterhin den Kernel-Namen; nur `input_device_display_name` in Autoconfig ändert die Anzeige in RetroArch.
 - **by-id-Pfad nicht einzigartig**: Im Switch-Modus ist der Pfad `usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick` identisch mit dem eines echten Nintendo Pro Controllers. Die Regel matched zwar über die MAC-Adresse (`ATTRS{uniq}`), aber der `RUN`-Befehl verwendet den by-id-Pfad. Falls du beide Controller gleichzeitig anschließt, könnte der Pfad auf das falsche Gerät zeigen. Im XInput-Modus ist der Pfad `usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick` nicht serial-spezifisch – bei zwei Pro 3 Receivern gäbe es einen Konflikt.
-- **KDE Plasma**: Gamecontroller brauchen die Freigabe „Als Maus und Tastatur verwenden“, sonst können Eingaben in Emulatoren fehlen (siehe [KDE Plasma](#kde-plasma)).
+- **KDE Plasma**: Gamecontroller brauchen die Freigabe „Als Maus und Tastatur verwenden“, sonst können Eingaben in Emulatoren fehlen (siehe [KDE Plasma](#kde-plasma)). Mit `99-8bitdo-usb-power.rules` ist die Freigabe für die Verbindungsstabilität nicht mehr nötig (siehe [USB-Autosuspend](#usb-autosuspend)).
 
 ## Deinstallation
 
 ```bash
 sudo rm /etc/udev/rules.d/99-8bitdo-ultimate2-fuzz.rules
 sudo rm /etc/udev/rules.d/99-8bitdo-pro3-fuzz.rules
+sudo rm /etc/udev/rules.d/99-8bitdo-usb-power.rules
 sudo rm -f /etc/udev/rules.d/60-steam-input.rules
 sudo udevadm control --reload-rules
 ```
