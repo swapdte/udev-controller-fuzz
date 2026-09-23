@@ -1,89 +1,122 @@
-# context-mode — MANDATORY routing rules
+# AGENTS.md
 
-context-mode MCP tools available. Rules protect context window from flooding. One unrouted command dumps 56 KB into context.
+Guidance for AI coding agents working in this repository.
 
-## Think in Code — MANDATORY
+## Tooling Rules
 
-Analyze/count/filter/compare/search/parse/transform data: **write code** via `context-mode_ctx_execute(language, code)`, `console.log()` only the answer. Do NOT read raw data into context. PROGRAM the analysis, not COMPUTE it. Pure JavaScript — Node.js built-ins only (`fs`, `path`, `child_process`). `try/catch`, handle `null`/`undefined`. One script replaces ten tool calls.
+### 1. File discovery — use the `fff` MCP tools
 
-## BLOCKED — do NOT attempt
+Use the `fff` MCP tools for all file discovery and file search operations instead of shell commands or the default tools:
 
-### curl / wget — BLOCKED
-Shell `curl`/`wget` intercepted and blocked. Do NOT retry.
-Use: `context-mode_ctx_fetch_and_index(url, source)` or `context-mode_ctx_execute(language: "javascript", code: "const r = await fetch(...)")`
+- `find_files` — find files by name, glob, or path prefix → **replaces `ls`, `find`, and `tree`**.
+- `grep` — search file contents for an identifier → replaces `grep` / `rg`.
+- `multi_grep` — OR-search several identifiers in one call.
 
-### Inline HTTP — BLOCKED
-`fetch('http`, `requests.get(`, `requests.post(`, `http.get(`, `http.request(` — intercepted. Do NOT retry.
-Use: `context-mode_ctx_execute(language, code)` — only stdout enters context
+Do not use `ls` or `find` to list or explore the filesystem; use `find_files` instead. Only fall back to a shell command when `fff` cannot express the operation.
 
-### Direct web fetching — BLOCKED
-Use: `context-mode_ctx_fetch_and_index(url, source)` then `context-mode_ctx_search(queries)`
+### 2. Library & API knowledge — `context7` first, then `deepwiki`
 
-## REDIRECTED — use sandbox
+When the behavior, API, configuration, or usage of a library, framework, SDK, or CLI tool is unclear, do not guess — look it up. Use the MCP documentation servers in this order:
 
-### Shell (>20 lines output)
-Shell ONLY for: `git`, `mkdir`, `rm`, `mv`, `cd`, `ls`, `npm install`, `pip install`.
-Otherwise: `context-mode_ctx_batch_execute(commands, queries)` or `context-mode_ctx_execute(language: "shell", code: "...")`
+1. **`context7` MCP** — resolve the library with `resolve-library-id`, then query it with `query-docs`. Preferred for concrete API syntax, setup/configuration, version-specific behavior, and current official examples.
+2. **`deepwiki` MCP** — if `context7` has no coverage, or the question is about a GitHub repository's architecture, internals, or design rationale, use `read_wiki_structure` / `read_wiki_contents`.
 
-### File reading (for analysis)
-Reading to **edit** → reading correct. Reading to **analyze/explore/summarize** → `context-mode_ctx_execute_file(path, language, code)`.
+Fall back to prior knowledge only when both sources are exhausted or the API is trivial and stable.
 
-### grep / search (large results)
-Use `context-mode_ctx_execute(language: "shell", code: "grep ...")` in sandbox.
+### 3. Shell commands — always use `rtk`
 
-## Tool selection
+`rtk` is a token-optimized CLI proxy that filters and summarizes command output before it reaches the model context (up to ~90% fewer output tokens).
 
-0. **MEMORY**: `context-mode_ctx_search(sort: "timeline")` — after resume, check prior context before asking user.
-1. **GATHER**: `context-mode_ctx_batch_execute(commands, queries)` — runs all commands, auto-indexes, returns search. ONE call replaces 30+. Each command: `{label: "header", command: "..."}`.
-2. **FOLLOW-UP**: `context-mode_ctx_search(queries: ["q1", "q2", ...])` — all questions as array, ONE call (default relevance mode).
-3. **PROCESSING**: `context-mode_ctx_execute(language, code)` | `context-mode_ctx_execute_file(path, language, code)` — sandbox, only stdout enters context.
-4. **WEB**: `context-mode_ctx_fetch_and_index(url, source)` then `context-mode_ctx_search(queries)` — raw HTML never enters context.
-5. **INDEX**: `context-mode_ctx_index(content, source)` — store in FTS5 for later search.
+> **Status:** rtk's automatic hook/plugin integration does **not** support OpenCode v2 yet. Until it does, the rules in this file are the mechanism — apply the `rtk` prefix manually on every command.
 
-## Parallel I/O batches
+**Rule:** whenever `rtk` is installed, run shell commands through its subcommands instead of the native binaries — for example `rtk git status` instead of `git status`.
 
-For multi-URL fetches or multi-API calls, **always** include `concurrency: N` (1-8):
+> Exception: for listing and locating files, the `fff` tools from section 1 take precedence over `rtk ls` / `rtk find`. Use the `rtk` wrappers for everything else and whenever a shell command is genuinely required.
 
-- `context-mode_ctx_batch_execute(commands: [3+ network commands], concurrency: 5)` — gh, curl, dig, docker inspect, multi-region cloud queries
-- `context-mode_ctx_fetch_and_index(requests: [{url, source}, ...], concurrency: 5)` — multi-URL batch fetch
+**Availability check (once per session):**
 
-**Use concurrency 4-8** for I/O-bound work (network calls, API queries). **Keep concurrency 1** for CPU-bound (npm test, build, lint) or commands sharing state (ports, lock files, same-repo writes).
+```bash
+rtk --version 2>/dev/null || echo "rtk unavailable"
+```
 
-GitHub API rate-limit: cap at 4 for `gh` calls.
+- Prints `rtk <version>` → `rtk` is available: use the `rtk` form for every command in the mapping below.
+- `command not found` or non-zero exit → fall back to the native commands for the rest of the session. Do not retry `rtk` on every call.
 
-## Output
+#### Command mapping
 
-Write artifacts to FILES — never inline. Return: file path + 1-line description.
-Descriptive source labels for `search(source: "label")`.
+| Native                                  | Use instead            |
+| --------------------------------------- | ---------------------- |
+| `ls` *(prefer `fff find_files`)*        | `rtk ls`               |
+| `tree` *(prefer `fff find_files`)*      | `rtk tree`             |
+| `cat`, `head`, `tail`                   | `rtk read <file>`      |
+| `grep`                                  | `rtk grep <pattern>`   |
+| `rg`                                    | `rtk rg <pattern>`     |
+| `find` *(prefer `fff find_files`)*      | `rtk find`             |
+| `wc`                                    | `rtk wc`               |
+| `git …`                                 | `rtk git …`            |
+| `gh …`                                  | `rtk gh …`             |
+| `glab …`                                | `rtk glab …`           |
+| `docker …`                              | `rtk docker …`         |
+| `kubectl …`                             | `rtk kubectl …`        |
+| `npm …`                                 | `rtk npm …`            |
+| `npx …`                                 | `rtk npx …`            |
+| `pnpm …`                                | `rtk pnpm …`           |
+| `cargo …`                               | `rtk cargo …`          |
+| `tsc`                                   | `rtk tsc`              |
+| `eslint` / `lint`                       | `rtk lint`             |
+| `prettier`                              | `rtk prettier`         |
+| `jest`                                  | `rtk jest`             |
+| `vitest`                                | `rtk vitest`           |
+| `playwright`                            | `rtk playwright`       |
+| `next build`                            | `rtk next`             |
+| `prisma …`                              | `rtk prisma …`         |
+| `curl …`                                | `rtk curl …`           |
+| `wget …`                                | `rtk wget …`           |
+| `aws …`                                 | `rtk aws …`            |
+| `psql …`                                | `rtk psql …`           |
+| `dotnet …`                              | `rtk dotnet …`         |
+| any test runner (e.g. `cargo test`)     | `rtk test <cmd>`       |
+| any command, errors/warnings only       | `rtk err <cmd>`        |
+| any command, heuristic summary          | `rtk summary <cmd>`    |
+| any command, unfiltered                 | `rtk proxy <cmd>`      |
 
-## Session Continuity
+#### Notes
 
-Skills, roles, and decisions persist for the entire session. Do not abandon them as the conversation grows.
+- `rtk` subcommands pass native flags through: `rtk ls -la`, `rtk grep -i -A 3 "foo" src/`, `rtk git diff --staged` all work.
+- For listing files or building a tree, prefer `fff find_files` (section 1). `rtk ls`, `rtk tree`, and `rtk find` are the shell fallback and proxy the native tools.
+- Meta/analytics commands are always called directly on `rtk`: `rtk gain`, `rtk gain --history`, `rtk discover`, `rtk config`.
+- If `rtk` filtering hides information you need (e.g. exact file contents with line numbers), re-run with the native command or `rtk read --level none -n`.
+- Do not wrap commands that `rtk` does not support. If no rtk subcommand exists, run the native command directly.
+- Do **not** rely on `rtk init --opencode`: the OpenCode hook/plugin is not supported on OpenCode v2 yet. Once support lands, the automatic rewrite can replace the manual prefixing described here.
 
-## Memory
+⚠️ **Name collision:** if `rtk gain` fails, a different `rtk` (reachingforthejack/rtk, "Rust Type Kit") may be on `PATH`. Verify with `which rtk`; if it is the wrong binary, fall back to the native commands.
 
-Session history is persistent and searchable. On resume, search BEFORE asking the user:
+### 4. Memory — use the `oc2-memory` plugin **frequently**
 
-| Need | Command |
-|------|---------|
-| What did we decide? | `context-mode_ctx_search(queries: ["decision"], source: "decision", sort: "timeline")` |
-| What constraints exist? | `context-mode_ctx_search(queries: ["constraint"], source: "constraint")` |
+`oc2-memory` is installed in this environment and is this project's memory layer. Use it by default, not as a last resort: an agent that never reads or writes memory re-derives context that already exists and loses decisions that were already made. The raw tool list lives in `mem.md`.
 
-DO NOT ask "what were we working on?" — SEARCH FIRST.
-If search returns 0 results, proceed as a fresh session.
+**Read before you work:**
 
-## ctx commands
+- `memory_search` — before planning non-trivial work, search for prior decisions, gotchas, project facts, and user preferences.
+- `memory_read` — pull a specific file (`long_term`, `scratchpad`, `daily`, `list`) when you need the full text.
 
-| Command | Action |
-|---------|--------|
-| `ctx stats` | Call `stats` MCP tool, display full output verbatim |
-| `ctx doctor` | Call `doctor` MCP tool, run returned shell command, display as checklist |
-| `ctx upgrade` | Call `upgrade` MCP tool, run returned shell command, display as checklist |
-| `ctx purge` | Call `purge` MCP tool with confirm: true. Warns before wiping knowledge base. |
+**Write when you learn something durable:**
 
-After /clear or /compact: knowledge base and session stats preserved. Use `ctx purge` to start fresh.
+- `memory_write` with `target: "long_term"` — decisions, architecture facts, conventions, user preferences, recurring bug classes. Append mode is the default; search first so you do not duplicate.
+- `memory_write` with `target: "daily"` — session progress, open threads, transient notes.
+- `scratchpad` (`add` / `done` / `undo` / `clear_done` / `list`) — small "fix later" items you do not want to lose mid-task.
 
-"
-Use the fff MCP tools for all file search operations instead of default tools.
-"
+**Maintain:**
 
+- `memory_status` — health check: where files live, qmd / collection / embeddings state.
+- `memory_forget` / `memory_restore` — remove outdated or wrong facts, then restore them via the returned recovery ID if needed.
+
+**Where it lives:** `~/.pi/agent/memory/` (shared pi memory) — `MEMORY.md` (long-term), `SCRATCHPAD.md`, daily logs. Falls back to `~/.oc2-memory/` when the pi directory does not exist; `PI_MEMORY_DIR` overrides both.
+
+**Rules:**
+
+- **Before a decision, search.** Whenever a decision is coming up — architecture, library choice, convention, workflow, trade-off — run `memory_search` first with a few relevant keywords. Prior context may already settle it.
+- **When a decision is made or a new insight appears, store it.** Do not leave it in the chat: `memory_write` the decision (what, why, alternatives rejected) or the finding, while the context is still fresh.
+- Search before writing; never append a duplicate fact.
+- Write facts and decisions, not narration — one self-contained entry per item.
+- Prefer the plugin over ad-hoc notes in chat or in scratch files.
