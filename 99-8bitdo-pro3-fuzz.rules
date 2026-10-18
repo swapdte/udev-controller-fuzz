@@ -1,13 +1,17 @@
 # 8BitDo Pro 3 Wireless Controller - Fuzz & Deadzone Optimierung
 # Wird automatisch ausgefuehrt sobald der Controller verbunden wird.
 #
-# Der Pro 3 meldet sich in zwei verschiedenen Modi:
-# 1. Switch-Modus (erstes Verbinden nach Reboot): als Nintendo Pro Controller (057e:2009)
+# Der Pro 3 meldet sich in drei verschiedenen Modi:
+# 1. Switch-Modus (USB): als Nintendo Pro Controller (057e:2009)
 #    - Treiber: hid_nintendo
 #    - Identifizierung via MAC-Adresse (ATTRS{uniq}), da USB-Serial nicht eindeutig
-# 2. XInput-Modus (nach Trennen und Neuverbinden): als 8BitDo Pro 3 Receiver (2dc8:310b)
+# 2. XInput-Modus (2,4-GHz-Dongle): als 8BitDo Pro 3 Receiver (2dc8:310b)
 #    - Treiber: xpad
 #    - Identifizierung via Vendor/Product ID, da ATTRS{uniq} leer ist
+# 3. D-Modus (Bluetooth): als 8BitDo Pro 3 (2dc8:6009)
+#    - Treiber: hid-generic
+#    - Identifizierung via Vendor/Product + Name, da es bei Bluetooth kein by-id gibt
+#    - Achsen: 0,1 linker Stick; 2,5 rechter Stick; 9,10 Trigger
 
 # Modus 1: Switch-Modus (Nintendo Pro Controller) - identifiziert via MAC-Adresse
 ACTION=="add", \
@@ -31,3 +35,19 @@ ACTION=="add", \
   RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick --f 8 --d 0 --a 1", \
   RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick --f 8 --d 0 --a 3", \
   RUN+="/usr/bin/evdev-joystick --e /dev/input/by-id/usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick --f 8 --d 0 --a 4"
+
+# Modus 3: D-Modus (Bluetooth) - identifiziert via Vendor/Product + Name
+# input-remapper erzeugt ein virtuelles "8BitDo Pro 3"-Gerät; phys-Filter schließt es aus.
+ACTION=="add", \
+  SUBSYSTEM=="input", \
+  KERNEL=="event*", \
+  ENV{ID_INPUT_JOYSTICK}=="1", \
+  ENV{ID_BUS}=="bluetooth", \
+  ATTRS{id/vendor}=="2dc8", \
+  ATTRS{id/product}=="6009", \
+  ATTRS{name}=="8BitDo Pro 3", \
+  ATTRS{phys}!="input-remapper/*", \
+  RUN+="/usr/bin/evdev-joystick --e $devnode --f 8 --d 0 --a 0", \
+  RUN+="/usr/bin/evdev-joystick --e $devnode --f 8 --d 0 --a 1", \
+  RUN+="/usr/bin/evdev-joystick --e $devnode --f 8 --d 0 --a 2", \
+  RUN+="/usr/bin/evdev-joystick --e $devnode --f 8 --d 0 --a 5"

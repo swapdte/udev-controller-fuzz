@@ -6,7 +6,7 @@ Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ulti
 
 - [Unterstützte Controller](#unterstützte-controller)
 - [Was die Einstellungen bewirken](#was-die-einstellungen-bewirken)
-- [Wichtig: Pro 3 meldet sich in zwei Modi](#wichtig-pro-3-meldet-sich-in-zwei-modi)
+- [Wichtig: Pro 3 meldet sich in drei Modi](#wichtig-pro-3-meldet-sich-in-drei-modi)
 - [Voraussetzungen](#voraussetzungen)
 - [Dateien in diesem Ordner](#dateien-in-diesem-ordner)
 - [Quick Start](#quick-start)
@@ -26,40 +26,50 @@ Automatisches Setzen von Fuzz- und Deadzone-Einstellungen für den **8BitDo Ulti
 | Controller | Vendor:Product | Modus | Identifikation via |
 |---|---|---|---|
 | 8BitDo Ultimate 2 Wireless | `2dc8:6013` | USB | `ID_SERIAL` (Serial `EF8B862260`) |
-| 8BitDo Pro 3 Wireless | `057e:2009` | Switch-Modus (1. Verbindung nach Reboot) | `ATTRS{uniq}` (MAC-Adresse) |
-| 8BitDo Pro 3 Wireless | `2dc8:310b` | XInput-Modus (nach Neuverbinden) | `ID_VENDOR_ID` + `ID_MODEL_ID` |
+| 8BitDo Pro 3 Wireless | `057e:2009` | Switch-Modus (USB) | `ATTRS{uniq}` (MAC-Adresse) |
+| 8BitDo Pro 3 Wireless | `2dc8:310b` | XInput-Modus (2,4-GHz-Dongle) | `ID_VENDOR_ID` + `ID_MODEL_ID` |
+| 8BitDo Pro 3 Wireless | `2dc8:6009` | D-Modus (Bluetooth) | `ATTRS{id/vendor}` + `ATTRS{id/product}` + `ATTRS{name}` |
 
 ## Was die Einstellungen bewirken
 
 - **Fuzz = 8**: Ignoriert Rauschen und Mikrobewegungen unterhalb von 8 Einheiten. Verhindert Stick-Drift.
 - **Deadzone (flat) = 0**: Setzt die hardwareseitige Deadzone auf 0 – der Fuzz-Wert übernimmt stattdessen die Filterung. Dadurch bleibt der Stick über den gesamten Bereich ansprechbar, ohne dass ungewollte Bewegungen registriert werden.
-- **Achsen 0, 1**: Linker Stick (X, Y)
-- **Achsen 3, 4**: Rechter Stick (X, Y)
-- **Achsen 2, 5** (Trigger): Werden nicht gesetzt. Im Switch-Modus nicht vorhanden, im XInput-Modus als Analogachsen (0–255) vorhanden, benötigen aber keine Fuzz/Deadzone-Optimierung.
+- **Switch-Modus:** Achsen 0, 1 (linker Stick) und 3, 4 (rechter Stick); 16, 17 (D-Pad).
+- **XInput-Modus:** Achsen 0, 1 (linker Stick) und 3, 4 (rechter Stick); 2, 5 (Trigger) bleiben unverändert; 16, 17 (D-Pad).
+- **D-Modus (Bluetooth):** Achsen 0, 1 (linker Stick) und 2, 5 (rechter Stick); 9, 10 (Trigger) bleiben unverändert; 16, 17 (D-Pad).
 
-## Wichtig: Pro 3 meldet sich in zwei Modi
+## Wichtig: Pro 3 meldet sich in drei Modi
 
-Der 8BitDo Pro 3 kann sich auf zwei verschiedene Arten am System melden:
+Der 8BitDo Pro 3 kann sich auf drei verschiedene Arten am System melden:
 
-### Modus 1: Switch-Modus (erste Verbindung nach Reboot)
+### Modus 1: Switch-Modus (USB)
 
-Beim ersten Verbinden nach einem Neustart meldet sich der Controller als **"Nintendo Pro Controller"** (vendor `057e`, product `2009`). Das ist normales Verhalten für 8BitDo-Controller im Switch-Modus.
+Im Switch-Modus (Schalterstellung `S`) meldet sich der Controller per USB-C-Kabel als **"Nintendo Pro Controller"** (vendor `057e`, product `2009`). Das ist normales Verhalten für 8BitDo-Controller im Switch-Modus.
 
 - **Treiber:** `hid_nintendo`
 - **Identifikation:** MAC-Adresse (`ATTRS{uniq}`), da die USB-Serial (`000000000001`) identisch mit echten Nintendo Pro Controllern ist
 - **by-id-Pfad:** `usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick`
 - **Achsen:** 0, 1, 3, 4, 16, 17 (keine Trigger-Achsen 2, 5)
 
-### Modus 2: XInput-Modus (nach Trennen und Neuverbinden)
+### Modus 2: XInput-Modus (2,4-GHz-Dongle)
 
-Nach dem Trennen und Neuverbinden des Controllers wechselt dieser in den XInput-Modus und meldet sich als **"8BitDo Pro 3 Receiver"** (vendor `2dc8`, product `310b`).
+Mit dem 2,4-GHz-Dongle meldet sich der Controller im XInput-Modus als **"8BitDo Pro 3 Receiver"** (vendor `2dc8`, product `310b`).
 
 - **Treiber:** `xpad`
 - **Identifikation:** Vendor/Product ID (`2dc8:310b`), da `ATTRS{uniq}` in diesem Modus leer ist
 - **by-id-Pfad:** `usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick`
 - **Achsen:** 0, 1, 2, 3, 4, 5, 16, 17 (inkl. Trigger-Achsen 2, 5)
 
-Die udev-Regel enthält **zwei separate Match-Blöcke**, um beide Modi abzudecken.
+### Modus 3: D-Modus (Bluetooth)
+
+Im D-Modus (Schalterstellung `D`) meldet sich der Controller über Bluetooth als **"8BitDo Pro 3"** (vendor `2dc8`, product `6009`). Es gibt keinen by-id-Pfad; die Regel adressiert das Event-Device direkt über `$devnode`.
+
+- **Treiber:** `hid-generic`
+- **Identifikation:** `ATTRS{id/vendor}` + `ATTRS{id/product}` + `ATTRS{name}`; `ATTRS{phys}` schließt das input-remapper-Virtualgerät aus
+- **Achsen:** 0, 1 (linker Stick), 2, 5 (rechter Stick), 9, 10 (Trigger), 16, 17 (D-Pad)
+- **Fuzz/Deadzone:** Achsen 0, 1, 2, 5; Trigger 9, 10 bleiben unverändert
+
+Die udev-Regel enthält **drei separate Match-Blöcke**, um alle Modi abzudecken.
 
 ## Voraussetzungen
 
@@ -82,7 +92,7 @@ Sollte `/usr/bin/evdev-joystick` ausgeben.
 | Datei | Beschreibung |
 |---|---|
 | `99-8bitdo-ultimate2-fuzz.rules` | udev-Regel für den 8BitDo Ultimate 2 – enthält alle vier `evdev-joystick`-Befehle inline |
-| `99-8bitdo-pro3-fuzz.rules` | udev-Regel für den 8BitDo Pro 3 – unterstützt beide Modi (Switch + XInput) |
+| `99-8bitdo-pro3-fuzz.rules` | udev-Regel für den 8BitDo Pro 3 – unterstützt alle drei Modi (Switch + XInput + D-Modus) |
 | `60-steam-input.rules` | Gefixte Steam-udev-Regel – behebt den `power/wakeup`-Fehler beim Booten |
 | `99-8bitdo-usb-power.rules` | Deaktiviert USB-Autosuspend für beide 8BitDo-Empfänger (alle Controller-Modi) |
 | `8BitDo Pro 2.cfg` | RetroArch-Profil: Pro 3 im Switch-Modus (`1406:8201`) |
@@ -158,9 +168,12 @@ RetroArch matched Controller über **Kernel-Gerätename + Vendor-ID + Product-ID
 |---|---|---|---|
 | Pro 3 Switch | `Nintendo.Co.Ltd. Pro Controller` | `057e:2009` | `1406:8201` |
 | Pro 3 XInput | `8BitDo Ultimate 2 Wireless Controller` | `2dc8:310b` | `11720:12555` |
+| Pro 3 D-Modus | `8BitDo Pro 3` | `2dc8:6009` | `11720:24585` |
 | Ultimate 2 | `8BitDo Ultimate 2 Wireless Controller` | `2dc8:6013` | `11720:24595` |
 
 > **Achtung:** Im XInput-Modus meldet der Kernel den Pro 3 fälschlich als „Ultimate 2 Wireless Controller“. Unterscheidung nur über die Product-ID (`12555` vs `24595`). Gleiche PID in beiden Profilen → RetroArch kann sie nicht trennen.
+
+> Für den D-Modus existiert derzeit kein eigenes RetroArch-Profil; die ID ist nur zur Vollständigkeit aufgeführt.
 
 ### Installation
 
@@ -234,10 +247,12 @@ sudo udevadm trigger --action=add /sys/class/input/event12
 **Pro 3:**
 ```bash
 # Gerätepfad herausfinden – hängt vom Modus ab:
-# Switch-Modus (1. Verbindung nach Reboot):
+# Switch-Modus (USB):
 ls /dev/input/by-id/*Pro_Controller*event-joystick
-# XInput-Modus (nach Neuverbinden):
+# XInput-Modus (2,4-GHz-Dongle):
 ls /dev/input/by-id/*Pro_3_Receiver*event-joystick
+# D-Modus (Bluetooth): kein by-id, Event-Node direkt suchen:
+grep -A3 'Name="8BitDo Pro 3"' /proc/bus/input/devices
 
 # udev-Event manuell auslösen (Geräteknoten anpassen, z.B. event27 – die Nummer variiert)
 sudo udevadm trigger --action=add /sys/class/input/event27
@@ -322,7 +337,7 @@ ATTRS{uniq}=="C5:4E:B8:D8:17:E4"
 
 Diesen Wert in `99-8bitdo-pro3-fuzz.rules` im Modus-1-Block bei `ATTRS{uniq}=="..."` eintragen.
 
-> **Hinweis:** Im XInput-Modus (nach Neuverbinden) ist `ATTRS{uniq}` leer. Die MAC kann nur im Switch-Modus ausgelesen werden. Der XInput-Modus-Block der Regel verwendet stattdessen `ID_VENDOR_ID` und `ID_MODEL_ID` und muss in der Regel nicht angepasst werden.
+> **Hinweis:** Im XInput-Modus (2,4-GHz-Dongle) ist `ATTRS{uniq}` leer. Die MAC kann nur im Switch-Modus ausgelesen werden. Der XInput-Modus-Block der Regel verwendet stattdessen `ID_VENDOR_ID` und `ID_MODEL_ID` und muss in der Regel nicht angepasst werden.
 
 ### evdev-joystick nicht gefunden
 
@@ -333,7 +348,7 @@ sudo pacman -S joyutils
 ## Einschränkungen
 
 - **SDL2 / Steam**: SDL2 (verwendet von Steam und vielen Spielen) kann den Controller via `/dev/hidraw*` anstelle von `/dev/input/event*` ansprechen. In diesem Fall werden die evdev-joystick-Einstellungen umgangen. Die Einstellungen wirken sich nur auf Software aus, die den evdev-Layer verwendet (z.B. `jstest`, `evtest`, native Linux-Spiele, RetroArch mit Joypad-Treiber `udev`).
-- **Zwei Modi des Pro 3**: Der Controller wechselt beim Neuverbinden vom Switch-Modus (Nintendo IDs) in den XInput-Modus (8BitDo IDs). Die udev-Regel deckt beide Modi ab, aber die Einstellungen müssen bei jedem Modus-Wechsel neu angewendet werden (passiert automatisch durch die udev-Regel).
+- **Drei Modi des Pro 3**: Switch-Modus (Nintendo IDs, USB), XInput-Modus (8BitDo IDs, 2,4-GHz-Dongle) und D-Modus (8BitDo IDs, Bluetooth). Die udev-Regel deckt alle drei ab; die Einstellungen werden bei jedem Modus-Wechsel automatisch neu angewendet.
 - **Kernel-Name nicht änderbar**: Weder udev noch xpad können den von `EVIOCGNAME` gelieferten Gerätenamen umbenennen. RetroArch und Spiele sehen weiterhin den Kernel-Namen; nur `input_device_display_name` in Autoconfig ändert die Anzeige in RetroArch.
 - **by-id-Pfad nicht einzigartig**: Im Switch-Modus ist der Pfad `usb-Nintendo.Co.Ltd._Pro_Controller_000000000001-event-joystick` identisch mit dem eines echten Nintendo Pro Controllers. Die Regel matched zwar über die MAC-Adresse (`ATTRS{uniq}`), aber der `RUN`-Befehl verwendet den by-id-Pfad. Falls du beide Controller gleichzeitig anschließt, könnte der Pfad auf das falsche Gerät zeigen. Im XInput-Modus ist der Pfad `usb-8BitDo_8BitDo_Pro_3_Receiver-event-joystick` nicht serial-spezifisch – bei zwei Pro 3 Receivern gäbe es einen Konflikt.
 - **KDE Plasma**: Gamecontroller brauchen die Freigabe „Als Maus und Tastatur verwenden“, sonst können Eingaben in Emulatoren fehlen (siehe [KDE Plasma](#kde-plasma)). Mit `99-8bitdo-usb-power.rules` ist die Freigabe für die Verbindungsstabilität nicht mehr nötig (siehe [USB-Autosuspend](#usb-autosuspend)).
